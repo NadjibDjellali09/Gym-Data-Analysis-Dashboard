@@ -17,6 +17,12 @@ This dashboard provides insights into fitness data, including univariate, bivari
 # Load predefined dataset
 data = pd.read_csv("gym_members_exercise_tracking.csv")
 
+# Clean column names: remove spaces, special characters, and ensure uniqueness
+data.columns = data.columns.str.replace(r"[()]", "", regex=True)  # Remove parentheses
+data.columns = data.columns.str.replace(r"[^a-zA-Z0-9_]", "_", regex=True)  # Replace special chars with "_"
+data.columns = data.columns.str.strip()  # Remove leading/trailing spaces
+data.columns = data.columns.str.replace("__", "_")  # Replace double underscores
+
 # Sidebar navigation
 st.sidebar.title("Navigation")
 section = st.sidebar.radio("Go to", ["Overview", "Univariate Analysis", "Bivariate Analysis", "Multivariate Analysis", "Personalized Recommendation"])
@@ -61,18 +67,29 @@ elif section == "Univariate Analysis":
 
 elif section == "Bivariate Analysis":
     st.header("Bivariate Analysis")
-    x_col = st.selectbox("Select X-axis", data.columns)
-    y_col = st.selectbox("Select Y-axis", data.columns)
 
-    if data[x_col].dtype in ['int64', 'float64'] and data[y_col].dtype in ['int64', 'float64']:
+    # Allow duplicate column selection using unique keys
+    x_col = st.selectbox("Select X-axis", data.columns, key="x_column")
+    y_col = st.selectbox("Select Y-axis", data.columns, key="y_column")
+
+    # If the same column is selected for both X and Y, create a duplicate column for plotting
+    if x_col == y_col:
+        data["temp_y"] = data[y_col]  # Create a temporary column
+
         st.write(f"### Scatter Plot: {x_col} vs {y_col}")
-        fig = px.scatter(data, x=x_col, y=y_col, trendline="ols", title=f"Scatter Plot of {x_col} vs {y_col}", hover_data=data.columns)
-        st.plotly_chart(fig)
+        fig = px.scatter(data, x=x_col, y="temp_y", trendline="ols", 
+                         title=f"Scatter Plot of {x_col} vs {y_col}", hover_data=data.columns)
 
-    elif data[x_col].dtype == 'object' and data[y_col].dtype in ['int64', 'float64']:
-        st.write(f"### Bar Chart: {x_col} vs {y_col}")
-        fig = px.bar(data, x=x_col, y=y_col, title=f"Bar Chart of {x_col} vs {y_col}", hover_data=data.columns)
-        st.plotly_chart(fig)
+        # Drop temp column after plotting
+        data.drop(columns=["temp_y"], inplace=True)
+
+    else:
+        st.write(f"### Scatter Plot: {x_col} vs {y_col}")
+        fig = px.scatter(data, x=x_col, y=y_col, trendline="ols", 
+                         title=f"Scatter Plot of {x_col} vs {y_col}", hover_data=data.columns)
+
+    st.plotly_chart(fig)
+
 
 elif section == "Multivariate Analysis":
     st.header("Multivariate Analysis")
